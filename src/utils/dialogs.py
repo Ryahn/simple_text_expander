@@ -27,9 +27,11 @@ class SimpleDialog(ctk.CTkToplevel):
         
         self.buttons = buttons
         
-        # Make dialog modal
+        # Make dialog modal and bring to front
         self.transient(parent)
         self.grab_set()
+        self.lift()
+        self.focus()
         
         # Message label
         msg_label = ctk.CTkLabel(self, text=message, 

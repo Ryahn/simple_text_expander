@@ -33,14 +33,18 @@ class SettingsPanel(ctk.CTkFrame):
     
     def _create_widgets(self):
         """Create UI widgets"""
+        # Create scrollable frame for entire content
+        scrollable_frame = ctk.CTkScrollableFrame(self)
+        scrollable_frame.pack(fill="both", expand=True)
+        
         # Title
-        title = ctk.CTkLabel(self, text="Settings", 
+        title = ctk.CTkLabel(scrollable_frame, text="Settings", 
                             font=ctk.CTkFont(size=24, weight="bold"))
         title.pack(pady=20)
         
         # Whitelist section
-        whitelist_frame = ctk.CTkFrame(self)
-        whitelist_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        whitelist_frame = ctk.CTkFrame(scrollable_frame)
+        whitelist_frame.pack(fill="x", padx=20, pady=10)
         
         whitelist_title = ctk.CTkLabel(whitelist_frame, text="Application Whitelist",
                                       font=ctk.CTkFont(size=18, weight="bold"))
@@ -61,29 +65,32 @@ class SettingsPanel(ctk.CTkFrame):
         
         # Whitelist list
         list_frame = ctk.CTkFrame(whitelist_frame)
-        list_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        list_frame.pack(fill="x", padx=10, pady=10)
         
         list_label = ctk.CTkLabel(list_frame, text="Whitelisted Applications:")
         list_label.pack(anchor="w", padx=10, pady=5)
         
-        # Scrollable list
+        # Scrollable list with fixed height
         self.whitelist_listbox = ctk.CTkScrollableFrame(list_frame, height=200)
-        self.whitelist_listbox.pack(fill="both", expand=True, padx=10, pady=5)
+        self.whitelist_listbox.pack(fill="x", padx=10, pady=5)
         
-        # Buttons
+        # Buttons with fixed width
         button_frame = ctk.CTkFrame(whitelist_frame)
-        button_frame.pack(pady=10)
+        button_frame.pack(fill="x", pady=10)
         
         add_btn = ctk.CTkButton(button_frame, text="Add Application",
-                               command=self._add_application)
+                               command=self._add_application,
+                               width=150, height=32)
         add_btn.pack(side="left", padx=5)
         
         remove_btn = ctk.CTkButton(button_frame, text="Remove Selected",
-                                  command=self._remove_application)
+                                  command=self._remove_application,
+                                  width=150, height=32)
         remove_btn.pack(side="left", padx=5)
         
         refresh_btn = ctk.CTkButton(button_frame, text="Refresh Running Apps",
-                                   command=self._refresh_running_apps)
+                                   command=self._refresh_running_apps,
+                                   width=150, height=32)
         refresh_btn.pack(side="left", padx=5)
         
         # Running apps dropdown (for adding)
@@ -93,11 +100,13 @@ class SettingsPanel(ctk.CTkFrame):
         self.running_apps_var = ctk.StringVar(value="Select an application...")
         self.running_apps_dropdown = ctk.CTkComboBox(self.running_apps_frame,
                                                     variable=self.running_apps_var,
-                                                    values=["Select an application..."])
+                                                    values=["Select an application..."],
+                                                    width=400, height=32)
         self.running_apps_dropdown.pack(side="left", padx=5, fill="x", expand=True)
         
         add_from_running_btn = ctk.CTkButton(self.running_apps_frame, text="Add",
-                                            command=self._add_from_running)
+                                            command=self._add_from_running,
+                                            width=100, height=32)
         add_from_running_btn.pack(side="left", padx=5)
         
         self._refresh_running_apps()
@@ -149,6 +158,8 @@ class SettingsPanel(ctk.CTkFrame):
         input_dialog.geometry("400x200")
         input_dialog.transient(self)
         input_dialog.grab_set()
+        input_dialog.lift()
+        input_dialog.focus()
         
         process_name_var = ctk.StringVar()
         window_title_var = ctk.StringVar()

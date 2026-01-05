@@ -21,6 +21,7 @@ class ExpansionsPanel(ctk.CTkFrame):
         self.on_expansion_changed = on_expansion_changed
         self.current_group_id = None
         self.expansions = []
+        self.selected_expansion_id = None
         
         self._create_widgets()
     
@@ -67,6 +68,7 @@ class ExpansionsPanel(ctk.CTkFrame):
         """
         self.current_group_id = group_id
         self.expansions = expansions
+        self.selected_expansion_id = None  # Reset selection when group changes
         
         self.title_label.configure(text=f"Expansions - {group_name}")
         
@@ -84,11 +86,28 @@ class ExpansionsPanel(ctk.CTkFrame):
         item_frame = ctk.CTkFrame(self.expansions_listbox)
         item_frame.pack(fill="x", padx=5, pady=5)
         
+        expansion_id = expansion['id']
+        
+        # Set initial frame color (unselected)
+        item_frame.configure(fg_color=("gray70", "gray30"))
+        
+        # Bind click to select and double-click to edit
+        item_frame.bind("<Button-1>", lambda e, eid=expansion_id: self._select_expansion(eid))
+        item_frame.bind("<Double-Button-1>", lambda e, eid=expansion_id: self._on_expansion_double_click(eid))
+        
+        # Make all child widgets also respond to clicks
+        def bind_to_children(widget):
+            widget.bind("<Button-1>", lambda e, eid=expansion_id: self._select_expansion(eid))
+            widget.bind("<Double-Button-1>", lambda e, eid=expansion_id: self._on_expansion_double_click(eid))
+            for child in widget.winfo_children():
+                bind_to_children(child)
+        
         # Prefix
         prefix_label = ctk.CTkLabel(item_frame, 
                                    text=f"Prefix: {expansion.get('prefix', '')}",
                                    font=ctk.CTkFont(weight="bold"))
         prefix_label.pack(anchor="w", padx=10, pady=2)
+        bind_to_children(prefix_label)
         
         # Description
         description = expansion.get('description', '')
@@ -96,6 +115,7 @@ class ExpansionsPanel(ctk.CTkFrame):
             desc_label = ctk.CTkLabel(item_frame, text=description,
                                      font=ctk.CTkFont(size=12))
             desc_label.pack(anchor="w", padx=10, pady=2)
+            bind_to_children(desc_label)
         
         # Preview text (truncated)
         text = expansion.get('text', '')
@@ -103,14 +123,16 @@ class ExpansionsPanel(ctk.CTkFrame):
         text_label = ctk.CTkLabel(item_frame, text=f"→ {preview}",
                                  font=ctk.CTkFont(size=11))
         text_label.pack(anchor="w", padx=10, pady=2)
+        bind_to_children(text_label)
         
         # Trigger info
         trigger_info = "Immediate" if expansion.get('trigger_immediate', True) else f"Delay: {expansion.get('trigger_delay_ms', 0)}ms"
         trigger_label = ctk.CTkLabel(item_frame, text=trigger_info,
                                     font=ctk.CTkFont(size=10))
         trigger_label.pack(anchor="w", padx=10, pady=2)
+        bind_to_children(trigger_label)
         
-        self.expansion_items.append((expansion['id'], item_frame))
+        self.expansion_items.append((expansion_id, item_frame))
     
     def _add_expansion(self):
         """Show dialog to add expansion"""
@@ -121,11 +143,56 @@ class ExpansionsPanel(ctk.CTkFrame):
             return result
         return None
     
+    def _select_expansion(self, expansion_id: str):
+        """Select an expansion"""
+        self.selected_expansion_id = expansion_id
+        
+        # Update visual selection (highlight selected item)
+        for eid, item_frame in self.expansion_items:
+            if eid == expansion_id:
+                item_frame.configure(fg_color=("gray75", "gray25"))
+            else:
+                item_frame.configure(fg_color=("gray70", "gray30"))
+    
+    def _on_expansion_double_click(self, expansion_id: str):
+        """Handle double-click on expansion to edit"""
+        self._select_expansion(expansion_id)
+        # Find the expansion data and trigger edit
+        expansion = None
+        for exp in self.expansions:
+            if exp['id'] == expansion_id:
+                expansion = exp
+                break
+        
+        if expansion:
+            dialog = ExpansionDialog(self, "Edit Expansion", expansion)
+            result = dialog.get_result()
+            
+            if result:
+                return result
+        return None
+    
     def _edit_expansion(self):
         """Edit selected expansion"""
-        # For now, just show add dialog (TODO: implement selection)
-        # In a full implementation, you'd track selected expansion
-        return self._add_expansion()
+        if not self.selected_expansion_id:
+            return None
+        
+        # Find the expansion data
+        expansion = None
+        for exp in self.expansions:
+            if exp['id'] == self.selected_expansion_id:
+                expansion = exp
+                break
+        
+        if not expansion:
+            return None
+        
+        dialog = ExpansionDialog(self, "Edit Expansion", expansion)
+        result = dialog.get_result()
+        
+        if result:
+            return result
+        return None
     
     def _delete_expansion(self):
         """Delete selected expansion"""
@@ -137,11 +204,16 @@ class ExpansionsPanel(ctk.CTkFrame):
         """Clear the panel"""
         self.current_group_id = None
         self.expansions = []
+        self.selected_expansion_id = None
         self.title_label.configure(text="Expansions")
         
         for widget in self.expansions_listbox.winfo_children():
             widget.destroy()
         self.expansion_items = []
+    
+    def get_selected_expansion_id(self) -> Optional[str]:
+        """Get currently selected expansion ID"""
+        return self.selected_expansion_id
 
 
 class ExpansionDialog(ctk.CTkToplevel):
@@ -160,6 +232,12 @@ class ExpansionDialog(ctk.CTkToplevel):
         self.title(title)
         self.geometry("600x500")
         self.result = None
+        
+        # Make dialog modal and bring to front
+        self.transient(parent)
+        self.grab_set()
+        self.lift()
+        self.focus()
         
         if expansion:
             self.expansion = expansion

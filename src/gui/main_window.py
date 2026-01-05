@@ -90,7 +90,8 @@ class MainWindow(ctk.CTk):
         groups_pane.pack_propagate(False)
         
         self.groups_panel = GroupsPanel(groups_pane, 
-                                        on_group_selected=self._on_group_selected)
+                                        on_group_selected=self._on_group_selected,
+                                        on_group_edit=self._edit_group)
         self.groups_panel.pack(fill="both", expand=True)
         
         # Wire up group panel buttons directly
@@ -243,13 +244,43 @@ Features:
     
     def _edit_expansion(self):
         """Edit selected expansion"""
-        selected_id = self.groups_panel.get_selected_group_id()
-        if not selected_id:
+        selected_group_id = self.groups_panel.get_selected_group_id()
+        if not selected_group_id:
             show_message(self, "Error", "Please select a group first!")
             return
         
-        # TODO: Implement selection tracking for expansions
-        show_message(self, "Info", "Expansion editing - select expansion to edit (coming soon)")
+        result = self.expansions_panel._edit_expansion()
+        if result:
+            expansion_id = self.expansions_panel.get_selected_expansion_id()
+            if not expansion_id:
+                show_message(self, "Error", "Please select an expansion to edit!")
+                return
+            
+            # Get the original expansion to check prefix uniqueness
+            group = self.data_manager.get_group(selected_group_id)
+            original_expansion = None
+            for exp in group.get('expansions', []):
+                if exp['id'] == expansion_id:
+                    original_expansion = exp
+                    break
+            
+            # Check prefix uniqueness (excluding current expansion's prefix)
+            if original_expansion and result['prefix'] != original_expansion.get('prefix'):
+                if not self.data_manager.is_prefix_unique(result['prefix']):
+                    show_message(self, "Error", "Prefix already exists!")
+                    return
+            
+            # Update the expansion
+            self.data_manager.update_expansion(
+                selected_group_id,
+                expansion_id,
+                result['prefix'],
+                result['text'],
+                result['description'],
+                result['trigger_immediate'],
+                result['trigger_delay_ms']
+            )
+            self._on_expansion_changed()
     
     def _delete_expansion(self):
         """Delete selected expansion"""

@@ -11,16 +11,19 @@ from src.utils.input_dialog import InputDialog
 class GroupsPanel(ctk.CTkFrame):
     """Panel for managing expansion groups"""
     
-    def __init__(self, parent, on_group_selected: Optional[Callable[[str], None]] = None):
+    def __init__(self, parent, on_group_selected: Optional[Callable[[str], None]] = None,
+                 on_group_edit: Optional[Callable[[str], None]] = None):
         """
         Initialize groups panel
         
         Args:
             parent: Parent widget
             on_group_selected: Callback when a group is selected (group_id)
+            on_group_edit: Callback when a group is double-clicked to edit (group_id)
         """
         super().__init__(parent)
         self.on_group_selected = on_group_selected
+        self.on_group_edit = on_group_edit
         self.selected_group_id = None
         self.groups = []
         
@@ -85,6 +88,8 @@ class GroupsPanel(ctk.CTkFrame):
                 anchor="w",
                 height=40
             )
+            # Bind double-click to edit
+            btn.bind("<Double-Button-1>", lambda e, gid=group_id: self._on_group_double_click(gid))
             btn.pack(fill="x", padx=5, pady=2)
             self.group_buttons.append((group_id, btn))
     
@@ -101,6 +106,13 @@ class GroupsPanel(ctk.CTkFrame):
         
         if self.on_group_selected:
             self.on_group_selected(group_id)
+    
+    def _on_group_double_click(self, group_id: str):
+        """Handle double-click on group to edit"""
+        self._select_group(group_id)
+        # Trigger edit callback
+        if self.on_group_edit:
+            self.on_group_edit(group_id)
     
     def _add_group(self):
         """Add a new group"""

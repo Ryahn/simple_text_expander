@@ -22,9 +22,11 @@ class InputDialog(ctk.CTkToplevel):
         self.geometry("400x150")
         self.result = None
         
-        # Make dialog modal
+        # Make dialog modal and bring to front
         self.transient(parent)
         self.grab_set()
+        self.lift()
+        self.focus()
         
         # Prompt label
         label = ctk.CTkLabel(self, text=prompt, font=ctk.CTkFont(size=12))
