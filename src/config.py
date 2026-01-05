@@ -18,8 +18,8 @@ else:  # macOS/Linux
 DATA_DIR = DOCUMENTS_DIR / "SimpleTextExpander"
 DATA_FILE = DATA_DIR / "data.json"
 
-# GitHub repository for updates (update this with your actual repo)
-GITHUB_REPO = "yourusername/simple_text_expander"  # Update this
+# GitHub repository for updates
+GITHUB_REPO = "Ryahn/simple_text_expander"
 
 # Default data structure
 DEFAULT_DATA = {

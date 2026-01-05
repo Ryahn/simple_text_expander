@@ -17,17 +17,17 @@ A cross-platform text expansion application with a modern dark-themed GUI built 
 
 ### Windows
 
-Download the latest installer from the [Releases](https://github.com/yourusername/simple_text_expander/releases) page and run the setup executable.
+Download the latest installer from the [Releases](https://github.com/Ryahn/simple_text_expander/releases) page and run the setup executable.
 
 ### macOS
 
-Download the DMG or ZIP file from the [Releases](https://github.com/yourusername/simple_text_expander/releases) page.
+Download the DMG or ZIP file from the [Releases](https://github.com/Ryahn/simple_text_expander/releases) page.
 
 ### From Source
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/simple_text_expander.git
+git clone https://github.com/Ryahn/simple_text_expander.git
 cd simple_text_expander
 ```
 
