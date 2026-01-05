@@ -1,0 +1,206 @@
+name: Build Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --ignore-checksums
+          $env:PATH = "C:\Program Files (x86)\Inno Setup 6;$env:PATH"
+          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+      
+      - name: Extract version from tag
+        id: tag_version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like "refs/tags/*") {
+            $version = $env:GITHUB_REF -replace "refs/tags/v", ""
+            $version = $version -replace "^v", ""
+          } else {
+            $version = "dev"
+          }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+      
+      - name: Build executable
+        run: |
+          pyinstaller build.spec
+      
+      - name: Create portable package
+        run: |
+          mkdir dist_portable
+          copy dist\simple_text_expander.exe dist_portable\simple_text_expander-portable.exe
+      
+      - name: Create installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.tag_version.outputs.version }}"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$version build_installer.iss
+      
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple_text_expander-Windows
+          path: |
+            dist_portable/simple_text_expander-portable.exe
+            dist_installer/simple_text_expander-Setup.exe
+          retention-days: 30
+  
+  build-macos:
+    name: Build macOS Executable
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION=${VERSION#v}  # Remove 'v' prefix if present
+          else
+            VERSION="dev"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+      
+      - name: Build executable
+        run: |
+          pyinstaller build.spec
+      
+      - name: Create .app bundle structure
+        run: |
+          VERSION="${{ steps.tag_version.outputs.version }}"
+          mkdir -p dist_app/simple_text_expander.app/Contents/MacOS
+          mkdir -p dist_app/simple_text_expander.app/Contents/Resources
+          cp dist/simple_text_expander dist_app/simple_text_expander.app/Contents/MacOS/simple_text_expander
+          chmod +x dist_app/simple_text_expander.app/Contents/MacOS/simple_text_expander
+          # Create Info.plist with version
+          cat > dist_app/simple_text_expander.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>simple_text_expander</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.simpletextexpander.app</string>
+              <key>CFBundleName</key>
+              <string>Simple Text Expander</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>$VERSION</string>
+              <key>CFBundleVersion</key>
+              <string>$VERSION</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+          </dict>
+          </plist>
+          EOF
+      
+      - name: Create DMG
+        run: |
+          mkdir -p dmg_package
+          cp -R dist_app/simple_text_expander.app dmg_package/
+          hdiutil create -volname "Simple Text Expander" -srcfolder dmg_package -ov -format UDZO dist/simple_text_expander.dmg || true
+      
+      - name: Create ZIP with .app
+        run: |
+          cd dist_app
+          zip -r ../dist/simple_text_expander.zip simple_text_expander.app
+          cd ..
+      
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple_text_expander-macOS
+          path: |
+            dist/simple_text_expander.dmg
+            dist/simple_text_expander.zip
+          retention-days: 30
+          if-no-files-found: warn
+  
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write  # Required to create releases
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: simple_text_expander-Windows
+          path: release_temp/
+      
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: simple_text_expander-macOS
+          path: release_temp/
+      
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # Copy Windows files (flatten directory structure)
+          find release_temp -name "simple_text_expander-portable.exe" -exec cp {} release/ \;
+          find release_temp -name "simple_text_expander-Setup.exe" -exec cp {} release/ \;
+          # Copy macOS files
+          find release_temp -name "simple_text_expander.dmg" -exec cp {} release/ \;
+          find release_temp -name "simple_text_expander.zip" -exec cp {} release/ \;
+          # List files to verify
+          ls -la release/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
